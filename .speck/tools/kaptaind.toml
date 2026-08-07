@@ -1,0 +1,4 @@
+name = "kaptaind"
+description = "Automated semantic versioning and change monitoring"
+docs = "https://github.com/vicolabs/kaptaind"
+commands = ["analyze", "status", "log", "aoc"]

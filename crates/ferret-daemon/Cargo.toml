@@ -1,0 +1,22 @@
+[package]
+name = "ferret-daemon"
+description = "Long-running Ferret webhook daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ferretd"
+path = "src/main.rs"
+
+[dependencies]
+ferret-core.workspace = true
+ferret-store.workspace = true
+anyhow.workspace = true
+axum.workspace = true
+clap.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

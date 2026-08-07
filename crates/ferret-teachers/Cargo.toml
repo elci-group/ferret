@@ -1,0 +1,14 @@
+[package]
+name = "ferret-teachers"
+description = "Teacher adapters for Ferret (GitHub, SARIF, CodeRabbit)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ferret-core.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true

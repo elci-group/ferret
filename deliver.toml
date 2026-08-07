@@ -1,0 +1,34 @@
+[[file]]
+path = "Cargo.toml"
+required = true
+
+[[file]]
+path = "README.md"
+required = true
+
+[[file]]
+path = "crates/ferret-core/src/lib.rs"
+required = true
+
+[[file]]
+path = "crates/ferret-cli/src/main.rs"
+required = true
+
+[[command]]
+name = "format"
+cmd = ["cargo", "fmt", "--", "--check"]
+expect_exit = 0
+timeout_secs = 120
+
+[[command]]
+name = "tests"
+cmd = ["cargo", "test", "--workspace"]
+expect_exit = 0
+timeout_secs = 300
+stdout_contains = ["test result: ok"]
+
+[[command]]
+name = "build"
+cmd = ["cargo", "build", "--workspace"]
+expect_exit = 0
+timeout_secs = 300

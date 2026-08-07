@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8A87C"/>
+      <stop offset="100%" stop-color="#C47E5A"/>
+    </linearGradient>
+    <linearGradient id="earGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8B5A3C"/>
+      <stop offset="100%" stop-color="#C47E5A"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#FDF8F3"/>
+  <!-- Ferret body -->
+  <ellipse cx="256" cy="290" rx="130" ry="110" fill="url(#bodyGrad)"/>
+  <!-- Head/mask area -->
+  <ellipse cx="256" cy="210" rx="95" ry="80" fill="#8B5A3C"/>
+  <!-- Face patch -->
+  <ellipse cx="256" cy="225" rx="70" ry="55" fill="#F5E6D3"/>
+  <!-- Ears -->
+  <path d="M170 160 L150 80 L220 130 Z" fill="url(#earGrad)"/>
+  <path d="M342 160 L362 80 L292 130 Z" fill="url(#earGrad)"/>
+  <!-- Eyes -->
+  <ellipse cx="220" cy="205" rx="14" ry="18" fill="#1A1512"/>
+  <ellipse cx="292" cy="205" rx="14" ry="18" fill="#1A1512"/>
+  <circle cx="224" cy="200" r="4" fill="#FDF8F3"/>
+  <circle cx="296" cy="200" r="4" fill="#FDF8F3"/>
+  <!-- Nose -->
+  <ellipse cx="256" cy="250" rx="18" ry="14" fill="#FF6B8A"/>
+  <!-- Whiskers -->
+  <line x1="190" y1="245" x2="140" y2="235" stroke="#7A6B63" stroke-width="3" stroke-linecap="round"/>
+  <line x1="190" y1="255" x2="140" y2="260" stroke="#7A6B63" stroke-width="3" stroke-linecap="round"/>
+  <line x1="322" y1="245" x2="372" y2="235" stroke="#7A6B63" stroke-width="3" stroke-linecap="round"/>
+  <line x1="322" y1="255" x2="372" y2="260" stroke="#7A6B63" stroke-width="3" stroke-linecap="round"/>
+</svg>

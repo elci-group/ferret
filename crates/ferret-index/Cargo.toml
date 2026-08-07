@@ -1,0 +1,12 @@
+[package]
+name = "ferret-index"
+description = "Corpus indexing for Ferret retrieval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ferret-core.workspace = true
+ferret-store.workspace = true
+anyhow.workspace = true

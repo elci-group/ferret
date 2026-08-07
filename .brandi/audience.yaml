@@ -1,0 +1,32 @@
+segments:
+  - name: rust_maintainers
+    description: "Teams maintaining Rust codebases who want fewer noisy review cycles."
+    pains:
+      - "repeated style comments on every PR"
+      - "tribal knowledge about repo conventions is undocumented"
+      - "expensive tools review code like generic static analyzers"
+  - name: platform_engineers
+    description: "Teams building developer experience and governance platforms."
+    pains:
+      - "inconsistent review standards across repositories"
+      - "no feedback loop from review outcomes to automation"
+      - "security findings get lost in noise"
+  - name: tech_leads
+    description: "Engineering leads who set conventions and care about code health."
+    pains:
+      - "PRs merge with known anti-patterns"
+      - "junior reviewers miss repository-specific risks"
+      - "review load is unevenly distributed"
+narratives:
+  - capability: "review memory"
+    narrative: "Turn every past review into a guardrail for the next PR."
+    audiences: [rust_maintainers, tech_leads]
+    formats: [docs, demo_video, blog]
+  - capability: "confidence routing"
+    narrative: "Let Ferret handle the routine findings and escalate only the uncertain ones."
+    audiences: [rust_maintainers, platform_engineers]
+    formats: [demo_video, docs, x_post]
+  - capability: "teacher ingestion"
+    narrative: "Learn from CodeRabbit, GitHub, SARIF, and CI fix loops in one normalized corpus."
+    audiences: [platform_engineers, tech_leads]
+    formats: [blog, docs]

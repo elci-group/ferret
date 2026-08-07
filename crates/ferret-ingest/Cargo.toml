@@ -1,0 +1,15 @@
+[package]
+name = "ferret-ingest"
+description = "Diff extraction and event normalization for Ferret"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ferret-core.workspace = true
+anyhow.workspace = true
+git2.workspace = true
+sha2.workspace = true
+similar.workspace = true
+uuid.workspace = true

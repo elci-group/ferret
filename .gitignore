@@ -1,0 +1,8 @@
+/target/
+**/*.db
+**/*.db-*
+.kaptaind/
+.env
+.idea/
+.vscode/
+.toon

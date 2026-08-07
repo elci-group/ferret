@@ -1,0 +1,20 @@
+product:
+  name: Ferret
+  tagline: "Review memory that learns."
+  mission: "Make every code review smarter than the last by remembering what this team actually cares about."
+  aliases: [ferretd]
+  former_names: []
+archetype: [detective, craftsman, guardian]
+terminology:
+  canonical:
+    snapshot: "A captured code review moment: a diff, its hunks, and the teachers that reviewed it."
+    hunk: "A contiguous block of changed lines in a diff."
+    finding: "A single review comment or observation normalized from any teacher."
+    teacher: "A source of review signal: CodeRabbit, GitHub, SARIF, CI fix loops, or Ferret itself."
+    outcome: "What happened to a finding: accepted, rejected, ignored, fixed, or pending."
+    route: "A confidence-based decision: solo, verify, or escalate."
+    corpus: "The accumulated repository-specific review history."
+  banned_variants:
+    "PR": "use pull request or snapshot"
+    "AI review": "use Ferret review or automated review"
+    "magic": "use learned or repository-specific"

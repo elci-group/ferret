@@ -1,0 +1,15 @@
+traits: [precise, curious, understated]
+trait_signals:
+  precise: [exactly, stable, verified, deterministic, hunk, corpus]
+  curious: [sniff out, trace, inspect, compare, wonder]
+  understated: [quietly, steadily, without the noise, no drama]
+style:
+  sentence_case_headings: true
+  max_exclamation_marks: 0
+  error_messages:
+    forbid_prefixes: ["Error", "ERROR", "Fatal", "panic", "Oops"]
+    forbid_numeric_codes: true
+    require_actionable: true
+  preferred_contractions: false
+  avoid_emoji_in_cli: true
+  cli_tone: "state the facts, suggest the next step"

@@ -1,0 +1,4 @@
+.kaptaind/
+target/
+**/*.db
+**/*.db-*

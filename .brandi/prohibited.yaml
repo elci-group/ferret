@@ -1,0 +1,44 @@
+categories:
+  corporate_jargon:
+    - synergy
+    - best-in-class
+    - seamless
+    - seamlessly
+    - cutting-edge
+    - world-class
+    - leverage our
+    - move the needle
+    - circle back
+  empty_hype:
+    - revolutionary
+    - game-changing
+    - game changer
+    - the future of
+    - awesome
+    - amazing
+    - incredible
+    - unlock
+    - supercharge
+    - elevate
+    - harness the
+    - next-generation
+  generic_ai_language:
+    - delve
+    - delving
+    - unlock the power
+    - supercharge
+    - elevate
+    - harness the
+    - in today's fast-paced
+    - leveraging AI
+    - powered by AI
+  unferret:
+    - magic
+    - black box
+    - wizard
+    - auto-pilot
+severity:
+  corporate_jargon: warning
+  empty_hype: error
+  generic_ai_language: warning
+  unferret: warning

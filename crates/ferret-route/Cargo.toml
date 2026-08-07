@@ -1,0 +1,11 @@
+[package]
+name = "ferret-route"
+description = "Confidence-based routing for Ferret review escalation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ferret-core.workspace = true
+serde.workspace = true

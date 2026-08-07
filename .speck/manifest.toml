@@ -1,0 +1,21 @@
+project = "ferret"
+
+[tools.kaptaind]
+enabled = true
+config = "kaptaind.toml"
+commands = ["analyze", "status", "log"]
+
+[tools.deliver]
+enabled = true
+config = "deliver.toml"
+commands = ["verify"]
+
+[tools.speck]
+enabled = true
+config = ".speck/manifest.toml"
+commands = ["inspect", "capabilities"]
+
+[tools.traci]
+enabled = true
+docs = "https://github.com/vicolabs/traci"
+commands = ["scan"]

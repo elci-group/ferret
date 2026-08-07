@@ -1,0 +1,26 @@
+[package]
+name = "ferret-cli"
+description = "CLI for Ferret review distillation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ferret"
+path = "src/main.rs"
+
+[dependencies]
+ferret-core.workspace = true
+ferret-store.workspace = true
+ferret-ingest.workspace = true
+ferret-infer.workspace = true
+ferret-route.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+console.workspace = true
+indicatif.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
