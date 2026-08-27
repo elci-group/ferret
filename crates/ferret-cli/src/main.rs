@@ -839,13 +839,28 @@ fn strip_cfg_test_regions(content: &str) -> String {
 /// user-facing status behind `if args.verbose { ... }` / `if verbose { ... }`;
 /// that's intentional output, not a debug statement left over from
 /// development, so Rule 3 must not flag it.
+/// Whether `text` calls the real `println!` macro. A plain
+/// `text.contains("println!")` also matches `eprintln!` — Ferret's own
+/// recommended stderr-diagnostics channel, not a stray debug print — since
+/// `"eprintln!"` contains `"println!"` as a substring. This checks that the
+/// character immediately before the match isn't an identifier character, so
+/// `eprintln!`/`sprintln!`-style macros don't count.
+fn contains_bare_println(text: &str) -> bool {
+    text.match_indices("println!").any(|(idx, _)| {
+        !text[..idx]
+            .chars()
+            .next_back()
+            .is_some_and(|c| c.is_alphanumeric() || c == '_')
+    })
+}
+
 fn has_unguarded_debug_print(content: &str) -> bool {
     let mut guard_stack: Vec<bool> = Vec::new();
     let mut currently_guarded = false;
     for raw_line in content.lines() {
         let line = raw_line.trim();
 
-        if (line.contains("println!") || line.contains("console.log")) && !currently_guarded {
+        if (contains_bare_println(line) || line.contains("console.log")) && !currently_guarded {
             return true;
         }
 
@@ -925,7 +940,8 @@ async fn coderabbit_review(snapshot: &ReviewSnapshot) -> Vec<ferret_core::Review
         }
         // Rule 3: console.log / println! debugging, excluding output gated
         // behind a `verbose` condition (see has_unguarded_debug_print)
-        let looks_like_debug_print = (content.contains("console.log") || content.contains("println!"))
+        let looks_like_debug_print = (content.contains("console.log")
+            || contains_bare_println(content))
             && file.ends_with(".rs")
             && content.lines().count() > 5;
         if looks_like_debug_print {
@@ -1278,6 +1294,29 @@ pub fn f(args: &Args) {
 }
 "#;
         assert!(has_unguarded_debug_print(content));
+    }
+
+    // Regression: "eprintln!" contains "println!" as a substring
+    // (eprintln! = "e" + "println!"), so a naive `.contains("println!")`
+    // flagged every legitimate stderr-diagnostics call as a leftover debug
+    // print. Observed against uni's src/run.rs, which is entirely eprintln!
+    // telemetry and has no println! at all.
+    #[test]
+    fn eprintln_is_not_flagged_as_debug_print() {
+        let content = r#"
+pub fn f(e: &str) {
+    eprintln!("uni: tool=amber stage=parse outcome=json_error error={e}");
+    eprintln!("uni: internal error: a tool task panicked: {e}");
+}
+"#;
+        assert!(!has_unguarded_debug_print(content));
+        assert!(!contains_bare_println(content));
+    }
+
+    #[test]
+    fn bare_println_is_still_detected_by_the_substring_guard() {
+        assert!(contains_bare_println("println!(\"debug\");"));
+        assert!(!contains_bare_println("eprintln!(\"telemetry\");"));
     }
 
     // Rule 6 (safety/error-swallow-before-write): a fallible read whose
