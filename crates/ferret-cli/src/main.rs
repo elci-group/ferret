@@ -1,32 +1,94 @@
 use anyhow::{Context, Result};
+mod business;
+mod chase;
+mod progress_compat;
+mod style_compat;
+
+// Route every human-facing Ferret result line through the shared 3form chase.
+// The sink is a plain println in machine/JSON/non-TTY modes.
+macro_rules! println {
+    () => {
+        crate::chase::print_line("")
+    };
+    ($($arg:tt)*) => {
+        crate::chase::print_line(&format!($($arg)*))
+    };
+}
+
 use chrono::Utc;
 use clap::{Parser, Subcommand};
-use console::{style, Style};
+use crate::style_compat::{style, Style};
 use ferret_core::{PredictedFinding, RepoProfile, ReviewSnapshot, SnapshotId, TeacherKind};
 use ferret_infer::RetrievalPredictor;
 use ferret_ingest::{extract_hunks, hunks_from_unified_diff, stable_hunk_id};
 use ferret_route::{Route, Router, RouterConfig};
 use ferret_store::Store;
-use indicatif::{ProgressBar, ProgressStyle};
+use crate::progress_compat::{hunk_progress, spinner};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 use tracing::info;
+
+use business::{
+    BusinessReport, DiscoveryOptions, FindingSummary, ProjectAnalysis, ProjectIdentity,
+    ProjectKind, ProjectStatus,
+};
 
 const LOGO: &str = include_str!("../../../.brandi/assets/logo.ansi");
 const TAGLINE: &str = "Review memory that learns.";
 
 #[derive(Parser)]
-#[command(name = "ferret", about = "Repository-specific review distillation")]
+#[command(
+    name = "ferret",
+    about = "Deterministic project scanner",
+    long_about = "ferret requires a project target; ferret business discovers projects within an environment and scans them independently."
+)]
 struct Cli {
     #[arg(short, long, default_value = "ferret.db")]
     database: PathBuf,
 
+    /// Scan one coherent project (defaults to the current directory).
+    #[arg(value_name = "TARGET")]
+    target: Option<PathBuf>,
+
+    /// Emit machine-readable JSON for project and business scans.
+    #[arg(long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand)]
 enum Command {
+    /// Discover and independently scan coherent projects beneath ROOT.
+    Business {
+        /// Discovery boundary (defaults to $HOME).
+        #[arg(value_name = "ROOT")]
+        root: Option<PathBuf>,
+        /// Maximum directory depth beneath ROOT.
+        #[arg(long, default_value_t = 12)]
+        max_depth: usize,
+        /// Include only matching relative project paths (`*` is supported).
+        #[arg(long)]
+        include: Vec<String>,
+        /// Exclude matching directory names or paths (`*` is supported).
+        #[arg(long)]
+        exclude: Vec<String>,
+        /// Disable the built-in build/cache/vendor exclusions.
+        #[arg(long)]
+        no_default_excludes: bool,
+        /// Discover only one kind: rust, node, python, go, php, ruby, elixir, java, dotnet.
+        #[arg(long)]
+        project_kind: Option<String>,
+        /// Maximum simultaneous project scans.
+        #[arg(long)]
+        parallel: Option<usize>,
+        /// Do not collect Git repository metadata.
+        #[arg(long)]
+        no_git: bool,
+        /// Follow in-boundary directory symlinks with canonical loop detection.
+        #[arg(long)]
+        follow_symlinks: bool,
+    },
     /// Print the Ferret logo and brand mark.
     Logo,
     /// Initialize the local Ferret database.
@@ -112,9 +174,93 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+    chase::configure(cli.json);
     let db = format!("sqlite:{}", cli.database.display());
 
-    match cli.command {
+    if let Some(target) = cli.target.as_deref() {
+        let exit = run_project_command(target, cli.json);
+        std::process::exit(exit.into());
+    }
+
+    let Some(command) = cli.command else {
+        let target = std::env::current_dir().context("resolve current directory")?;
+        let exit = run_project_command(&target, cli.json);
+        std::process::exit(exit.into());
+    };
+
+    match command {
+        Command::Business {
+            root,
+            max_depth,
+            include,
+            exclude,
+            no_default_excludes,
+            project_kind,
+            parallel,
+            no_git,
+            follow_symlinks,
+        } => {
+            let root = match root.or_else(home_directory) {
+                Some(root) => root,
+                None => {
+                    eprintln!(
+                        "ERROR business_invocation_failed\nreason: HOME is not set; provide ROOT"
+                    );
+                    std::process::exit(3);
+                }
+            };
+            let project_kind = match project_kind {
+                Some(kind) => match ProjectKind::parse(&kind) {
+                    Some(kind) => Some(kind),
+                    None => {
+                        eprintln!("ERROR business_invocation_failed\nreason: unknown project kind `{kind}`");
+                        std::process::exit(3);
+                    }
+                },
+                None => None,
+            };
+            let mut options = DiscoveryOptions {
+                max_depth,
+                include,
+                exclude: if no_default_excludes {
+                    Vec::new()
+                } else {
+                    business::DEFAULT_EXCLUSIONS
+                        .iter()
+                        .map(|value| (*value).to_owned())
+                        .collect()
+                },
+                project_kind,
+                follow_symlinks,
+                git: !no_git,
+            };
+            options.exclude.extend(exclude);
+            let parallel = parallel.unwrap_or_else(|| {
+                std::thread::available_parallelism()
+                    .map(usize::from)
+                    .unwrap_or(1)
+            });
+            if parallel == 0 {
+                eprintln!(
+                    "ERROR business_invocation_failed\nreason: --parallel must be at least 1"
+                );
+                std::process::exit(3);
+            }
+            match business::scan_business(&root, &options, parallel, scan_project) {
+                Ok(report) => {
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&report)?);
+                    } else {
+                        print_business_report(&report);
+                    }
+                    std::process::exit(report.exit_code().into());
+                }
+                Err(error) => {
+                    eprintln!("ERROR business_discovery_failed\nreason: {error:#}");
+                    std::process::exit(3);
+                }
+            }
+        }
         Command::Logo => {
             print_logo();
         }
@@ -245,6 +391,163 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn home_directory() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+fn run_project_command(target: &Path, json: bool) -> u8 {
+    let project = match business::project_at(target, true) {
+        Ok(project) => project,
+        Err(error) => {
+            eprintln!("ERROR {error:#}");
+            return 3;
+        }
+    };
+    match scan_project(&project) {
+        Ok(analysis) => {
+            let exit = u8::from(!analysis.findings.is_empty());
+            if json {
+                let output = serde_json::json!({
+                    "schema": "ferret.project/v1",
+                    "project": project,
+                    "analysis": analysis,
+                });
+                match serde_json::to_string_pretty(&output) {
+                    Ok(output) => println!("{output}"),
+                    Err(error) => {
+                        eprintln!("ERROR serialize_project_report\nreason: {error}");
+                        return 3;
+                    }
+                }
+            } else {
+                println!("FERRET\n");
+                println!("Project:  {}", project.project_name);
+                println!("Path:     {}", project.canonical_path.display());
+                println!("Kind:     {}", project.project_kind);
+                println!("Files:    {}", analysis.files_scanned);
+                println!("Findings: {}", analysis.findings.len());
+                if !analysis.findings.is_empty() {
+                    println!("\nPROJECT FINDINGS\n");
+                    for finding in &analysis.findings {
+                        println!(
+                            "{}  {}",
+                            finding.severity.to_ascii_uppercase(),
+                            finding.message
+                        );
+                    }
+                }
+            }
+            exit
+        }
+        Err(error) => {
+            eprintln!(
+                "ERROR project_scan_failed\ntarget: {}\nreason: {error:#}",
+                project.canonical_path.display()
+            );
+            2
+        }
+    }
+}
+
+fn scan_project(project: &ProjectIdentity) -> Result<ProjectAnalysis> {
+    let manifest = std::fs::read_to_string(&project.project_manifest)
+        .with_context(|| format!("read manifest {}", project.project_manifest.display()))?;
+    if manifest.trim().is_empty() {
+        anyhow::bail!("manifest is empty: {}", project.project_manifest.display());
+    }
+    if project.project_kind == ProjectKind::Node {
+        serde_json::from_str::<serde_json::Value>(&manifest)
+            .with_context(|| format!("parse manifest {}", project.project_manifest.display()))?;
+    }
+
+    let hunks = collect_hunks_for_track(&project.canonical_path)?;
+    let snapshot = ReviewSnapshot {
+        id: SnapshotId::new(),
+        repo_id: ferret_core::RepoId::from_slug(&project.canonical_path.to_string_lossy()),
+        pr_number: None,
+        base_sha: "scan-base".into(),
+        head_sha: "scan-head".into(),
+        hunks,
+        teachers: vec![TeacherKind::CodeRabbit, TeacherKind::Ferret],
+        captured_at: Utc::now(),
+    };
+    let files_by_hunk = snapshot
+        .hunks
+        .iter()
+        .map(|hunk| (hunk.id.as_str(), hunk.file_path.as_str()))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut findings = coderabbit_review(&snapshot)
+        .into_iter()
+        .map(|finding| FindingSummary {
+            category: format!("{:?}", finding.category).to_ascii_lowercase(),
+            severity: format!("{:?}", finding.severity).to_ascii_lowercase(),
+            message: finding.message,
+            rule_id: finding.rule_id,
+            file: finding
+                .hunk_id
+                .as_deref()
+                .and_then(|id| files_by_hunk.get(id).copied())
+                .map(ToOwned::to_owned),
+        })
+        .collect::<Vec<_>>();
+    findings.sort_by(|left, right| {
+        left.file
+            .cmp(&right.file)
+            .then_with(|| left.rule_id.cmp(&right.rule_id))
+            .then_with(|| left.message.cmp(&right.message))
+    });
+    Ok(ProjectAnalysis {
+        files_scanned: snapshot.hunks.len(),
+        findings,
+    })
+}
+
+fn print_business_report(report: &BusinessReport) {
+    println!("FERRET BUSINESS\n");
+    println!("Root: {}\n", report.root.display());
+    println!("Projects discovered: {}", report.summary.discovered);
+    println!("Projects scanned:    {}", report.summary.scanned);
+    println!("Successful:          {}", report.summary.successful);
+    println!("Warnings:            {}", report.summary.warnings);
+    println!("Errors:              {}", report.summary.errors);
+    println!("\nPROJECTS\n");
+    for result in &report.projects {
+        let (symbol, outcome) = match result.status {
+            ProjectStatus::Passed => ("✓", "PASS".to_owned()),
+            ProjectStatus::Warning => (
+                "⚠",
+                format!(
+                    "{} findings",
+                    result
+                        .analysis
+                        .as_ref()
+                        .map_or(0, |analysis| analysis.findings.len())
+                ),
+            ),
+            ProjectStatus::Error => ("✗", "ERROR".to_owned()),
+        };
+        println!(
+            "{symbol} {:<20} {:<8} {outcome}",
+            result.project.project_name, result.project.project_kind
+        );
+        if let Some(error) = &result.error {
+            println!("  {}", style(error).red());
+        }
+    }
+    if !report.business_findings.is_empty() {
+        println!("\nBUSINESS FINDINGS\n");
+        for finding in &report.business_findings {
+            println!(
+                "{:<5} {}",
+                finding.severity.to_ascii_uppercase(),
+                finding.message
+            );
+        }
+    }
+}
+
 fn resolve_track_target(input: Option<PathBuf>) -> PathBuf {
     match input {
         Some(p) if p.as_os_str() == "." || p.as_os_str().is_empty() => {
@@ -256,7 +559,7 @@ fn resolve_track_target(input: Option<PathBuf>) -> PathBuf {
 }
 
 async fn run_track(db: &str, target: &Path) -> Result<()> {
-    use ferret_core::{Category, FindingId, ReviewFinding, Severity};
+    use ferret_core::{Category, Severity};
 
     print_logo();
     println!(
@@ -266,7 +569,9 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
     );
 
     // Resolve canonical target and slug
-    let canonical_target = target.canonicalize().unwrap_or_else(|_| target.to_path_buf());
+    let canonical_target = target
+        .canonicalize()
+        .unwrap_or_else(|_| target.to_path_buf());
     let slug = infer_slug(&canonical_target);
     println!("{} {}", style("→ slug:").dim(), style(&slug).bold());
 
@@ -275,7 +580,7 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
     let repo_id = store.upsert_repo(&RepoProfile::new(&slug)).await?;
 
     // Collect hunks: try git diff first if target is a git repo, else scan files
-    let hunks = collect_hunks_for_track(&canonical_target).await;
+    let hunks = collect_hunks_for_track(&canonical_target)?;
     scan_spinner.finish_with_message(format!(
         "{} files/hunks collected from {}",
         style(hunks.len()).bold(),
@@ -303,7 +608,7 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
 
     // Conduct CodeRabbit review (heuristic + stub teacher) while Ferret tracks
     let review_spinner = spinner("Running CodeRabbit review (Ferret tracking)");
-    let findings = coderabbit_review(&snapshot).await;
+    let findings = coderabbit_review(&snapshot);
     review_spinner.finish_with_message(format!(
         "{} CodeRabbit findings",
         style(findings.len()).bold()
@@ -313,20 +618,20 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
     let learn_spinner = spinner("Ferret learning environment & review habits");
     let mut env_profile = RepoProfile::new(&slug);
     // Learn environment: languages, file counts
-    let mut lang_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut lang_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for h in &hunks {
         let lang = h.language.clone().unwrap_or_else(|| "unknown".into());
         *lang_counts.entry(lang).or_insert(0) += 1;
     }
     // Learn review habits: category distribution and severity
-    let mut cat_counts: std::collections::HashMap<Category, usize> = std::collections::HashMap::new();
+    let mut cat_counts: std::collections::HashMap<Category, usize> =
+        std::collections::HashMap::new();
     let mut sev_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for f in &findings {
         store.save_finding(f).await?;
         *cat_counts.entry(f.category).or_insert(0) += 1;
-        *sev_counts
-            .entry(format!("{:?}", f.severity))
-            .or_insert(0) += 1;
+        *sev_counts.entry(format!("{:?}", f.severity)).or_insert(0) += 1;
     }
 
     // Update strictness: higher strictness for categories CodeRabbit flagged often
@@ -336,8 +641,12 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
         env_profile.strictness.insert(*cat, strictness);
     }
     // Teacher reliability: CodeRabbit observed
-    env_profile.teacher_reliability.insert("coderabbit".into(), 0.85);
-    env_profile.teacher_reliability.insert("ferret".into(), 0.75);
+    env_profile
+        .teacher_reliability
+        .insert("coderabbit".into(), 0.85);
+    env_profile
+        .teacher_reliability
+        .insert("ferret".into(), 0.75);
     env_profile.total_snapshots = 1;
     env_profile.total_findings = findings.len() as u64;
 
@@ -372,7 +681,11 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
             .map(|(k, v)| format!("{k}:{v}"))
             .collect::<Vec<_>>()
             .join(", ");
-        println!("  {} {}", style("languages:").cyan().bold(), style(langs).dim());
+        println!(
+            "  {} {}",
+            style("languages:").cyan().bold(),
+            style(langs).dim()
+        );
     }
     if !cat_counts.is_empty() {
         let cats = cat_counts
@@ -380,11 +693,7 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
             .map(|(k, v)| format!("{k:?}:{v}"))
             .collect::<Vec<_>>()
             .join(", ");
-        println!(
-            "  {} {}",
-            style("habits:").cyan().bold(),
-            style(cats).dim()
-        );
+        println!("  {} {}", style("habits:").cyan().bold(), style(cats).dim());
     }
     println!(
         "  {} {}",
@@ -393,10 +702,16 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
     );
 
     if findings.is_empty() {
-        println!("{}", style("No issues found — Ferret learned clean-review pattern.").dim());
+        println!(
+            "{}",
+            style("No issues found — Ferret learned clean-review pattern.").dim()
+        );
     } else {
         println!();
-        println!("{}", header.apply_to(format!("CodeRabbit findings ({})", findings.len())));
+        println!(
+            "{}",
+            header.apply_to(format!("CodeRabbit findings ({})", findings.len()))
+        );
         for f in &findings {
             let sev_style = match f.severity {
                 Severity::Critical => Style::new().red().bold(),
@@ -433,25 +748,36 @@ async fn run_track(db: &str, target: &Path) -> Result<()> {
 }
 
 async fn run_dream(db: &str, target: &Path, limit: usize, legacy: bool) -> Result<()> {
-
-    let canonical_target = target.canonicalize().unwrap_or_else(|_| target.to_path_buf());
+    let canonical_target = target
+        .canonicalize()
+        .unwrap_or_else(|_| target.to_path_buf());
     if !canonical_target.exists() {
         anyhow::bail!("target does not exist: {}", canonical_target.display());
     }
     let target_dir = if canonical_target.is_file() {
-        canonical_target.parent().unwrap_or(Path::new(".")).to_path_buf()
+        canonical_target
+            .parent()
+            .unwrap_or(Path::new("."))
+            .to_path_buf()
     } else {
         canonical_target.clone()
     };
 
     let store = Store::open(db).await?;
-    let findings = store.recent_findings(limit as i64).await.unwrap_or_default();
+    let findings = store
+        .recent_findings(limit as i64)
+        .await
+        .unwrap_or_default();
 
-    let spinner = spinner(&format!("Converting {} recent findings to .dreams", findings.len()));
+    let spinner = spinner(&format!(
+        "Converting {} recent findings to .dreams",
+        findings.len()
+    ));
     // Map severity -> priority, category -> workflow-friction
     let output = render_ferret_dreams(&target_dir, &findings).await;
     let dreams_dir = target_dir.join(".dreams");
-    std::fs::create_dir_all(&dreams_dir).with_context(|| format!("create {}", dreams_dir.display()))?;
+    std::fs::create_dir_all(&dreams_dir)
+        .with_context(|| format!("create {}", dreams_dir.display()))?;
     std::fs::create_dir_all(dreams_dir.join("history"))?;
     for lifecycle in ["completed.dreams", "rejected.dreams"] {
         let p = dreams_dir.join(lifecycle);
@@ -477,11 +803,16 @@ async fn run_dream(db: &str, target: &Path, limit: usize, legacy: bool) -> Resul
         std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))
             .with_context(|| format!("protect {}", tmp.display()))?;
     }
-    std::fs::rename(&tmp, &active_path).with_context(|| format!("rename to {}", active_path.display()))?;
+    std::fs::rename(&tmp, &active_path)
+        .with_context(|| format!("rename to {}", active_path.display()))?;
 
     // history copy
     let date = Utc::now().format("%Y-%m-%d").to_string();
-    let id = uuid::Uuid::new_v4().to_string().chars().take(8).collect::<String>();
+    let id = uuid::Uuid::new_v4()
+        .to_string()
+        .chars()
+        .take(8)
+        .collect::<String>();
     let hist_path = dreams_dir
         .join("history")
         .join(format!("{date}-{id}.dreams"));
@@ -529,7 +860,13 @@ async fn run_dream(db: &str, target: &Path, limit: usize, legacy: bool) -> Resul
         );
     }
     if findings.is_empty() {
-        println!("{}", style("No recent findings — wrote empty dreams list. Run `ferret track` to learn first.").dim());
+        println!(
+            "{}",
+            style(
+                "No recent findings — wrote empty dreams list. Run `ferret track` to learn first."
+            )
+            .dim()
+        );
     } else {
         let header = Style::new().bold().underlined();
         println!("\n{}", header.apply_to("Dreams preview"));
@@ -543,7 +880,10 @@ async fn run_dream(db: &str, target: &Path, limit: usize, legacy: bool) -> Resul
             );
         }
         if findings.len() > 5 {
-            println!("  {}", style(format!("… and {} more", findings.len() - 5)).dim());
+            println!(
+                "  {}",
+                style(format!("… and {} more", findings.len() - 5)).dim()
+            );
         }
     }
     Ok(())
@@ -670,9 +1010,11 @@ fn infer_slug(target: &Path) -> String {
     format!("local/{name}")
 }
 
-async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
+fn collect_hunks_for_track(target: &Path) -> Result<Vec<ferret_core::DiffHunk>> {
     // If target is a git repo and has diff, prefer git hunks for realism
     if target.is_dir() {
+        std::fs::read_dir(target)
+            .with_context(|| format!("read project directory {}", target.display()))?;
         // Try to collect files via recursive walk (skip hidden/large)
         let mut hunks = Vec::new();
         let mut stack = vec![target.to_path_buf()];
@@ -685,10 +1027,16 @@ async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
                 Ok(e) => e,
                 Err(_) => continue,
             };
-            for entry in entries.flatten() {
+            let mut entries = entries.flatten().collect::<Vec<_>>();
+            entries.sort_by_key(|entry| entry.file_name());
+            for entry in entries.into_iter().rev() {
                 let path = entry.path();
                 let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-                if fname.starts_with('.') || fname == "target" || fname == "node_modules" || fname == ".git" {
+                if fname.starts_with('.')
+                    || fname == "target"
+                    || fname == "node_modules"
+                    || fname == ".git"
+                {
                     continue;
                 }
                 if path.is_dir() {
@@ -698,7 +1046,21 @@ async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
                     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
                     let interesting = matches!(
                         ext,
-                        "rs" | "py" | "ts" | "js" | "tsx" | "jsx" | "go" | "java" | "rb" | "php" | "md" | "toml" | "yaml" | "yml" | "json" | "sh"
+                        "rs" | "py"
+                            | "ts"
+                            | "js"
+                            | "tsx"
+                            | "jsx"
+                            | "go"
+                            | "java"
+                            | "rb"
+                            | "php"
+                            | "md"
+                            | "toml"
+                            | "yaml"
+                            | "yml"
+                            | "json"
+                            | "sh"
                     );
                     if !interesting {
                         continue;
@@ -719,9 +1081,7 @@ async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
                         .into_owned();
                     // Create a synthetic hunk: whole file as one hunk
                     let id = stable_hunk_id(&rel, &content);
-                    let language = path
-                        .extension()
-                        .map(|e| e.to_string_lossy().into_owned());
+                    let language = path.extension().map(|e| e.to_string_lossy().into_owned());
                     hunks.push(ferret_core::DiffHunk {
                         id,
                         file_path: rel,
@@ -739,29 +1099,28 @@ async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
                 }
             }
         }
+        hunks.sort_by(|left, right| left.file_path.cmp(&right.file_path));
         if !hunks.is_empty() {
-            return hunks;
+            return Ok(hunks);
         }
     } else if target.is_file() {
-        if let Ok(content) = std::fs::read_to_string(target) {
-            let fname = target
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("file");
-            let id = stable_hunk_id(fname, &content);
-            return vec![ferret_core::DiffHunk {
-                id,
-                file_path: fname.to_string(),
-                old_start: 1,
-                old_lines: 0,
-                new_start: 1,
-                new_lines: content.lines().count() as u32,
-                content: content.chars().take(4000).collect(),
-                language: target
-                    .extension()
-                    .map(|e| e.to_string_lossy().into_owned()),
-            }];
-        }
+        let content = std::fs::read_to_string(target)
+            .with_context(|| format!("read project file {}", target.display()))?;
+        let fname = target
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("file");
+        let id = stable_hunk_id(fname, &content);
+        return Ok(vec![ferret_core::DiffHunk {
+            id,
+            file_path: fname.to_string(),
+            old_start: 1,
+            old_lines: 0,
+            new_start: 1,
+            new_lines: content.lines().count() as u32,
+            content: content.chars().take(4000).collect(),
+            language: target.extension().map(|e| e.to_string_lossy().into_owned()),
+        }]);
     }
 
     // Fallback: try git diff if we can find a repo
@@ -771,13 +1130,11 @@ async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
                 if let Some(oid) = head.target() {
                     // try HEAD vs HEAD~1
                     if let Ok(base) = repo.revparse_single(&format!("{oid}~1")) {
-                        if let Ok(hunks) = extract_hunks(
-                            parent,
-                            &base.id().to_string(),
-                            &oid.to_string(),
-                        ) {
+                        if let Ok(hunks) =
+                            extract_hunks(parent, &base.id().to_string(), &oid.to_string())
+                        {
                             if !hunks.is_empty() {
-                                return hunks;
+                                return Ok(hunks);
                             }
                         }
                     }
@@ -785,7 +1142,7 @@ async fn collect_hunks_for_track(target: &Path) -> Vec<ferret_core::DiffHunk> {
             }
         }
     }
-    Vec::new()
+    Ok(Vec::new())
 }
 
 /// Remove `#[cfg(test)]`-gated items (typically `mod tests { ... }`) from Rust
@@ -895,7 +1252,7 @@ fn has_error_swallow_before_write(content: &str) -> bool {
     swallows_error && writes_to_disk
 }
 
-async fn coderabbit_review(snapshot: &ReviewSnapshot) -> Vec<ferret_core::ReviewFinding> {
+fn coderabbit_review(snapshot: &ReviewSnapshot) -> Vec<ferret_core::ReviewFinding> {
     use ferret_core::{Category, FindingId, ReviewFinding, Severity};
     let mut findings = Vec::new();
     for hunk in &snapshot.hunks {
@@ -970,14 +1327,21 @@ async fn coderabbit_review(snapshot: &ReviewSnapshot) -> Vec<ferret_core::Review
                 hunk_id: Some(hunk.id.clone()),
                 category: Category::Architecture,
                 severity: Severity::Minor,
-                message: format!("Large hunk ({} lines) in {file} — consider splitting", hunk.new_lines),
+                message: format!(
+                    "Large hunk ({} lines) in {file} — consider splitting",
+                    hunk.new_lines
+                ),
                 suggestion: None,
                 rule_id: Some("arch/large-hunk".into()),
                 captured_at: Utc::now(),
             });
         }
         // Rule 5: missing error handling
-        if file.ends_with(".rs") && content.contains("Result") && !content.contains("?") && content.contains("fn ") {
+        if file.ends_with(".rs")
+            && content.contains("Result")
+            && !content.contains("?")
+            && content.contains("fn ")
+        {
             findings.push(ReviewFinding {
                 id: FindingId::new(),
                 snapshot_id: snapshot.id,
@@ -1027,36 +1391,6 @@ fn print_logo() {
     println!("{}", LOGO);
     println!("  {}", style(TAGLINE).dim().italic());
     println!();
-}
-
-fn spinner(msg: &str) -> ProgressBar {
-    let bar = ProgressBar::new_spinner();
-    bar.set_style(
-        ProgressStyle::default_spinner()
-            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-            .template("{spinner:.cyan} {msg}")
-            .expect("spinner template"),
-    );
-    bar.set_message(msg.to_string());
-    bar.enable_steady_tick(Duration::from_millis(80));
-    bar
-}
-
-async fn hunk_progress(len: usize, msg: &str) -> ProgressBar {
-    let bar = ProgressBar::new(len.max(1) as u64);
-    bar.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.cyan} {msg} [{bar:40.cyan/blue}] {pos}/{len}")
-            .expect("progress template")
-            .progress_chars("#>-")
-            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ "),
-    );
-    bar.set_message(msg.to_string());
-    for _ in 0..len {
-        bar.inc(1);
-        tokio::time::sleep(Duration::from_millis(25)).await;
-    }
-    bar
 }
 
 fn print_snapshot_summary(snapshot: &ReviewSnapshot) {
@@ -1186,6 +1520,83 @@ fn load_hunks(
         return extract_hunks(repo_path, base, head);
     }
     anyhow::bail!("provide --path (git repo) or --diff (unified diff file)")
+}
+
+#[cfg(test)]
+mod project_business_regression_tests {
+    use super::*;
+
+    struct TempTree(PathBuf);
+
+    impl TempTree {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "ferret-project-regression-{}",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for TempTree {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn direct_and_business_use_equivalent_project_analysis() {
+        let tree = TempTree::new();
+        let project_path = tree.0.join("app");
+        std::fs::create_dir_all(project_path.join("src")).unwrap();
+        std::fs::write(project_path.join("go.mod"), "module example/app\n").unwrap();
+        std::fs::write(
+            project_path.join("src/main.go"),
+            "package main\nfunc main() {}\n",
+        )
+        .unwrap();
+
+        let direct_project = business::project_at(&project_path, false).unwrap();
+        let direct = scan_project(&direct_project).unwrap();
+        let report = business::scan_business(
+            &tree.0,
+            &DiscoveryOptions {
+                git: false,
+                ..Default::default()
+            },
+            2,
+            scan_project,
+        )
+        .unwrap();
+        assert_eq!(report.projects.len(), 1);
+        assert_eq!(report.projects[0].analysis.as_ref(), Some(&direct));
+    }
+
+    #[test]
+    fn malformed_project_does_not_prevent_other_real_scans() {
+        let tree = TempTree::new();
+        let broken = tree.0.join("broken");
+        let valid = tree.0.join("valid");
+        std::fs::create_dir_all(&broken).unwrap();
+        std::fs::create_dir_all(&valid).unwrap();
+        std::fs::write(broken.join("package.json"), "{not-json").unwrap();
+        std::fs::write(valid.join("go.mod"), "module valid\n").unwrap();
+
+        let report = business::scan_business(
+            &tree.0,
+            &DiscoveryOptions {
+                git: false,
+                ..Default::default()
+            },
+            2,
+            scan_project,
+        )
+        .unwrap();
+        assert_eq!(report.summary.errors, 1);
+        assert_eq!(report.summary.successful, 1);
+        assert_eq!(report.summary.scanned, 2);
+    }
 }
 
 #[cfg(test)]

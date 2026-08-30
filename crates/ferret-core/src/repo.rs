@@ -15,7 +15,8 @@ impl RepoId {
     pub fn from_slug(slug: &str) -> Self {
         use sha2::{Digest, Sha256};
         let hash = Sha256::digest(slug.as_bytes());
-        let bytes: [u8; 16] = hash[..16].try_into().expect("16 bytes");
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&hash[..16]);
         Self(uuid::Uuid::from_bytes(bytes))
     }
 }

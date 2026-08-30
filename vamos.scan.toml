@@ -1,0 +1,148 @@
+[[actions]]
+name = "build_project"
+trigger = "run cargo build to compile the project"
+expected_effects = ["compiled binary exists"]
+
+[[actions.continuation]]
+name = "compile_crates"
+description = "Compile all workspace crates"
+
+[[actions.completion]]
+type = "file_exists"
+path = "target/debug/ferret"
+
+[[actions.completion]]
+type = "file_exists"
+path = "target/debug/ferretd"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "cargo build"
+
+[[actions]]
+name = "run_tests"
+trigger = "execute cargo test"
+expected_effects = ["all tests pass"]
+
+[[actions.continuation]]
+name = "execute_tests"
+description = "Run the test suite for all crates"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "cargo test"
+
+[[actions]]
+name = "init_database"
+trigger = "ferret init to initialize the local corpus database"
+expected_effects = ["database file created"]
+
+[[actions.continuation]]
+name = "create_db"
+description = "Create ferret.db SQLite database and schema"
+
+[[actions.completion]]
+type = "file_exists"
+path = "ferret.db"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferret init"
+
+[[actions]]
+name = "register_repo"
+trigger = "ferret register to add a repository profile"
+expected_effects = ["repository metadata stored in database"]
+
+[[actions.continuation]]
+name = "add_repo"
+description = "Insert repository slug and settings into ferret.db"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferret register --slug {{slug}}"
+
+[[actions.completion]]
+type = "file_exists"
+path = "ferret.db"
+
+[[actions]]
+name = "capture_snapshot"
+trigger = "ferret snapshot to capture a review snapshot from a diff"
+expected_effects = ["snapshot entry recorded in database"]
+
+[[actions.continuation]]
+name = "extract_diff"
+description = "Parse unified diff and normalize hunks"
+
+[[actions.continuation]]
+name = "store_snapshot"
+description = "Persist snapshot data into ferret.db"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferret snapshot --repo {{repo}} --base {{base}} --head {{head}} --diff {{diff_path}}"
+
+[[actions.completion]]
+type = "file_exists"
+path = "ferret.db"
+
+[[actions]]
+name = "show_stats"
+trigger = "ferret stats to display corpus statistics"
+expected_effects = ["statistics displayed in stdout"]
+
+[[actions.continuation]]
+name = "query_stats"
+description = "Query ferret.db for counts of findings, repos, etc."
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferret stats"
+
+[[actions]]
+name = "predict_findings"
+trigger = "ferret predict to generate findings for a snapshot"
+expected_effects = ["predictions printed to stdout"]
+
+[[actions.continuation]]
+name = "retrieve_context"
+description = "Retrieve relevant corpus entries"
+
+[[actions.continuation]]
+name = "infer_findings"
+description = "Score and generate predictions"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferret predict"
+
+[[actions]]
+name = "route_decisions"
+trigger = "ferret route to show routing decisions for predictions"
+expected_effects = ["routing table printed to stdout"]
+
+[[actions.continuation]]
+name = "evaluate_confidence"
+description = "Compute confidence for each prediction"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferret route"
+
+[[actions]]
+name = "start_daemon"
+trigger = "run ferretd to start the webhook daemon"
+expected_effects = ["daemon running and listening on configured port"]
+
+[[actions.continuation]]
+name = "launch_daemon"
+description = "Start the async web server and health endpoint"
+
+[[actions.completion]]
+type = "file_exists"
+path = "target/debug/ferretd"
+
+[[actions.completion]]
+type = "command_succeeds"
+cmd = "ferretd"

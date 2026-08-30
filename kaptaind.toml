@@ -31,3 +31,6 @@ b = 0.0
 patch = 0.15
 minor = 0.45
 major = 0.75
+
+[trust]
+execution = "trusted"

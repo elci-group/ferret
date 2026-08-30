@@ -78,6 +78,65 @@ cargo run -p ferret-cli -- stats
 cargo run -p ferret-daemon -- --listen 127.0.0.1:8787
 ```
 
+## Project and Business scans
+
+Ferret's scanner operates on exactly one coherent project boundary. Business
+mode is a read-only portfolio orchestrator: it discovers project boundaries
+beneath an environment root, passes each project through that same scanner in
+isolation, and then aggregates the results.
+
+**`ferret` requires a project target; `ferret business` discovers projects
+within an environment and scans them independently.**
+
+```text
+USAGE:
+    ferret [TARGET]
+    ferret business [ROOT]
+
+EXAMPLES:
+    ferret .
+    ferret ~/src/ferret
+    ferret business
+    ferret business /home --json
+```
+
+The default Business discovery root is `$HOME`. Discovery recognizes Rust,
+Node, Python, Go, PHP, Ruby, Elixir, Java, and .NET manifests. It does not
+follow directory symlinks by default and skips common repository, dependency,
+cache, and build directories. Cargo workspace members are attributed to their
+workspace rather than scanned as duplicate logical projects.
+
+Business controls include `--max-depth`, `--include`, `--exclude`,
+`--project-kind`, `--parallel`, `--no-git`, and `--follow-symlinks`. Results
+are always sorted by canonical project path, independent of completion order.
+One malformed project is recorded as an error while remaining projects
+continue to scan.
+
+Both modes support `--json`. Business output uses the
+`ferret.business/v1` schema and retains every project's identity, analysis,
+status, and error separately from cross-project `business_findings`.
+
+Business exit codes are stable:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Every discovered project passed |
+| `1` | One or more project or Business findings were reported |
+| `2` | One or more projects could not be scanned |
+| `3` | Business invocation or discovery failed |
+
+### Animated result chase
+
+Interactive Ferret commands render every result line as a 3form-backed chase:
+the result text is revealed as the trail behind an animated ferret pursuing a
+rabbit. The animal font was selected through six recursive mutation/evaluation
+rounds and provides three distinct poses for each animal.
+
+Animation follows 3form mode negotiation. It is enabled only for interactive
+UI terminals; `--json`, pipes, redirected output, and `3FORM_MODE=machine`
+remain deterministic and ANSI-free. Set `FERRET_ANIMATION=0` to disable the
+effect explicitly, or `NO_COLOR=1` to retain the chase without colour.
+
 ## CLI in action
 
 ### Logo

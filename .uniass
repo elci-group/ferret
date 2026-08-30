@@ -1,0 +1,89 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║ 📊 UNI ANALYSIS REPORT — /home/sal/ferret 
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║ 🕐 Generated: 2026-08-23T01:03:29.551278746+00:00                               
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+🟠 PROJECT HEALTH: D (63.7/100) ⚠️ PROVISIONAL
+  📦 Tool Availability:     9/10 available (90%)
+  ⚙️  Tool Execution:        9/10 executed (90%)
+  ✅ Valid Results:         9/10 valid (90%)
+  🔍 Analysis Coverage:     🔴 34.9%
+  🎯 Confidence Level:      🟡 71.4%
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 🔧 ANALYSIS TOOLS SUMMARY
+├────────────┬──────────────┬───────┬─────────┬─────────────────────────────────┤
+│ TOOL       │ STATUS       │ GRADE │ SCORE   │ PURPOSE                         │
+├────────────┼──────────────┼───────┼─────────┼─────────────────────────────────┤
+│ amber      │ ⚠️ warn      │ F     │    48.0 │ dependency bloat / replaceabili │
+│ ami        │ ✅ ok        │ D-    │    60.0 │ project profile completeness (m │
+│ bart       │ ✅ ok        │ —     │       — │ filesystem size & hotspots (inf │
+│ chakra     │ ⚠️ warn      │ D     │    63.5 │ data-flow / architecture map co │
+│ ferret     │ 🚫 unavailable │ —     │       — │ repository-specific review find │
+│ fract      │ ⚠️ warn      │ A-    │    92.0 │ module entropy, cohesion, dupli │
+│ isopod     │ ⚠️ warn      │ —     │       — │ ISO27001/27002 compliance postu │
+│ jeenome    │ ⊘ skipped   │ —     │       — │ behavioural trace analysis (opt │
+│ lwoodz     │ ❌ fail      │ F     │    55.0 │ license / SPDX compliance       │
+│ tempcheq   │ ◯ n/a       │ —     │       — │ LLM sampling-temperature correc │
+│ traci      │ ❌ fail      │ —     │       — │ observability/telemetry complet │
+│ vamos      │ ⊘ skipped   │ —     │       — │ nominal vs. validated action co │
+└────────────┴──────────────┴───────┴─────────┴─────────────────────────────────┘
+
+📝 DETAILED FINDINGS BY TOOL:
+═══════════════════════════════════════════════════════════════════════════════════
+
+  ⚠️ amber: 23 dependencies analyzed: 10 keep/security-block, 13 propose, 0 proceed
+      • anyhow: security_block (replaceability 59)
+      • chrono: security_block (replaceability 67)
+      • git2: security_block (replaceability 47)
+      • serde: security_block (replaceability 20)
+      • sha2: security_block (replaceability 20)
+
+  ✅ ami: profile for ferret: 7 capabilities, 0 keywords detected
+      • no repository URL detected
+      • no keywords detected
+      ℹ️  Note: score reflects how complete ami's project profile is (description/repository/capabilities/keywords), not market reach; run `ami analyze` separately for the full discovery pipeline
+
+  ✅ bart: 111 files, 1.6 MB under root
+      • /home/sal/ferret/tapes: 873.3 KB
+      • /home/sal/ferret/crates: 262.4 KB
+      • /home/sal/ferret/.brandi: 207.0 KB
+      • /home/sal/ferret/.skillastic: 154.2 KB
+      • /home/sal/ferret/Cargo.lock: 86.4 KB
+      ℹ️  Note: informational only — bart measures disk usage, not code health
+
+  ⚠️ chakra: 82 nodes, 172 flows; coverage 27.0% (30/111 files), confidence 100.0%
+      • 172 flow(s) with provenance=observed
+
+  ⊘ ferret: installed ferret supports neither `hunt` nor the newer project-review alias `track`; update ferret and rerun uni
+  ⚠️ fract: 30 modules indexed: 0 excellent, 24 healthy, 6 warning, 0 critical
+      • crates/ferret-cli/src/main.rs: entropy 0.81 — Within entropy budget (0.81)
+      • crates/ferret-padagonia/src/scoring_reader.rs: entropy 0.68 — Within entropy budget (0.68)
+      • crates/ferret-padagonia/src/fallback_queue.rs: entropy 0.68 — Within entropy budget (0.68)
+      • crates/ferret-padagonia/src/provider_registry.rs: entropy 0.67 — Within entropy budget (0.67)
+      • crates/ferret-padagonia/src/client.rs: entropy 0.66 — Within entropy budget (0.66)
+
+  ⚠️ isopod: 6/14 controls assessed (42.9% coverage): 6 pass, 0 warn, 0 fail, 8 unknown
+      ℹ️  Note: coverage is 42.9%; compliance is ungraded below the 80% evidence threshold, and UNKNOWN controls are not treated as failures
+
+  ⊘ jeenome: jeenome is opt-in (needs an strace trace, not just a project path); pass --jeenome to include it
+  ❌ lwoodz: license=unknown, spdx_valid=true, header coverage 0/30, 0 incompatible / 0 warning issues among 324 deps
+
+  ◯ tempcheq: not applicable: no inference actions found
+      ℹ️  Note: zero observations do not establish project health and are excluded from scoring
+
+  ❌ traci: 30 files, 47 observability diagnostics: 4 critical, 42 error-severity, 1 warning-severity, 0 info
+      • [observability/critical] TRC007 /home/sal/ferret/crates/ferret-cli/src/main.rs:797 — panic path cannot be reconstructed from telemetry
+      • [observability/critical] TRC007 /home/sal/ferret/crates/ferret-core/src/repo.rs:18 — panic path cannot be reconstructed from telemetry
+      • [observability/critical] TRC007 /home/sal/ferret/crates/ferret-padagonia/src/config.rs:33 — panic path cannot be reconstructed from telemetry
+      • [observability/critical] TRC007 /home/sal/ferret/crates/ferret-padagonia/src/domain.rs:123 — panic path cannot be reconstructed from telemetry
+      • [observability/error] TRC002 /home/sal/ferret/crates/ferret-cli/src/main.rs:466 — result is discarded without a diagnostic record
+      ℹ️  Note: observability diagnostics are not assigned a project-health score because Traci does not expose a total opportunity/coverage denominator
+
+  ⊘ vamos: no vamos.toml in project root; vamos hasn't been adopted here yet — run `vamos init` in the target to start tracking action lifecycles
+═══════════════════════════════════════════════════════════════════════════════════
+🏆 OVERALL GRADE: D (63.7/100)
+   Progress: [█████████████░░░░░░░] 63.7%
+   Graded Tools: 5/12
+

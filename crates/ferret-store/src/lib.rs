@@ -183,6 +183,48 @@ impl Store {
 
         Ok(rows.into_iter().map(|(m,)| m).collect())
     }
+
+    pub async fn recent_findings(&self, limit: i64) -> anyhow::Result<Vec<ReviewFinding>> {
+        let rows = sqlx::query_as::<_, FindingRow>(
+            r#"
+            SELECT id, snapshot_id, teacher, hunk_id, category, severity, message, suggestion, rule_id, captured_at
+            FROM findings
+            ORDER BY datetime(captured_at) DESC
+            LIMIT ?1
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut out = Vec::with_capacity(rows.len());
+        for r in rows {
+            out.push(r.into_finding()?);
+        }
+        Ok(out)
+    }
+
+    pub async fn findings_for_snapshot(
+        &self,
+        snapshot_id: &str,
+    ) -> anyhow::Result<Vec<ReviewFinding>> {
+        let rows = sqlx::query_as::<_, FindingRow>(
+            r#"
+            SELECT id, snapshot_id, teacher, hunk_id, category, severity, message, suggestion, rule_id, captured_at
+            FROM findings
+            WHERE snapshot_id = ?1
+            ORDER BY datetime(captured_at) DESC
+            "#,
+        )
+        .bind(snapshot_id)
+        .fetch_all(&self.pool)
+        .await?;
+        let mut out = Vec::with_capacity(rows.len());
+        for r in rows {
+            out.push(r.into_finding()?);
+        }
+        Ok(out)
+    }
 }
 
 fn category_str(category: Category) -> &'static str {
@@ -213,6 +255,62 @@ fn disposition_str(disposition: Disposition) -> &'static str {
         Disposition::Ignored => "ignored",
         Disposition::Fixed => "fixed",
         Disposition::Pending => "pending",
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct FindingRow {
+    id: String,
+    snapshot_id: String,
+    teacher: String,
+    hunk_id: Option<String>,
+    category: String,
+    severity: String,
+    message: String,
+    suggestion: Option<String>,
+    rule_id: Option<String>,
+    captured_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl FindingRow {
+    fn into_finding(self) -> anyhow::Result<ReviewFinding> {
+        use std::str::FromStr as _;
+        let category = match self.category.as_str() {
+            "style" => Category::Style,
+            "safety" => Category::Safety,
+            "architecture" => Category::Architecture,
+            "performance" => Category::Performance,
+            "testing" => Category::Testing,
+            "documentation" => Category::Documentation,
+            _ => Category::Other,
+        };
+        let severity = match self.severity.as_str() {
+            "info" => Severity::Info,
+            "minor" => Severity::Minor,
+            "major" => Severity::Major,
+            "critical" => Severity::Critical,
+            _ => Severity::Info,
+        };
+        let teacher = ferret_core::TeacherKind::parse(&self.teacher)
+            .unwrap_or(ferret_core::TeacherKind::Ferret);
+        let id = uuid::Uuid::from_str(&self.id)
+            .map(ferret_core::FindingId)
+            .unwrap_or_else(|_| ferret_core::FindingId::new());
+        let snapshot_id = uuid::Uuid::from_str(&self.snapshot_id)
+            .map(ferret_core::SnapshotId)
+            .unwrap_or_else(|_| ferret_core::SnapshotId::new());
+        Ok(ReviewFinding {
+            id,
+            snapshot_id,
+            teacher,
+            hunk_id: self.hunk_id,
+            category,
+            severity,
+            message: self.message,
+            suggestion: self.suggestion,
+            rule_id: self.rule_id,
+            captured_at: self.captured_at,
+        })
     }
 }
 
