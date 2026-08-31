@@ -11,8 +11,14 @@ command = "cargo test --workspace"
 required = true
 
 [push]
-enabled = false
+enabled = true
 branch = "main"
+
+[capabilities]
+network_push = true
+
+[operation]
+mode = "actuate"
 
 [staging]
 mode = "all"
