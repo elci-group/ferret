@@ -1,7 +1,7 @@
 {
   "last_app_version": "0.1.0",
-  "last_head": "07d5676",
-  "last_check": "2026-08-29T22:04:04.513217956Z",
+  "last_head": "f91d91a",
+  "last_check": "2026-09-04T13:22:33.772563233Z",
   "events": [
     "[2026-08-26 16:14:11] change detected: app ? -> 0.1.0, head None -> Some(\"fa26532\")",
     "[2026-08-26 16:14:11] resolve amber: load (skill verified for app 0.1.0)",
@@ -38,6 +38,18 @@
     "[2026-08-27 11:16:51] resolve kaptaind: load (skill verified for app 0.1.0)",
     "[2026-08-27 11:16:51] resolve marty: load (skill verified for app 0.1.0)",
     "[2026-08-27 11:16:51] resolve tokaudit: load (skill verified for app 0.1.0)",
-    "[2026-08-27 11:16:51] resolve verify-chain: load (skill verified for app 0.1.0)"
+    "[2026-08-27 11:16:51] resolve verify-chain: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] change detected: app 0.1.0 -> 0.1.0, head Some(\"07d5676\") -> Some(\"f91d91a\")",
+    "[2026-09-01 20:51:57] resolve amber: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve bart: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve bound: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve deckhand: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve deliver: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve diverge: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve fract: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve kaptaind: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve marty: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve tokaudit: load (skill verified for app 0.1.0)",
+    "[2026-09-01 20:51:57] resolve verify-chain: load (skill verified for app 0.1.0)"
   ]
 }
