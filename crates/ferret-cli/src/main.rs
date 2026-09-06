@@ -91,6 +91,8 @@ enum Command {
     },
     /// Print the Ferret logo and brand mark.
     Logo,
+    /// Clone the latest ferret source and install it with `baby --user`.
+    Update,
     /// Initialize the local Ferret database.
     Init,
     /// Register or update a repository profile.
@@ -263,6 +265,9 @@ async fn main() -> Result<()> {
         }
         Command::Logo => {
             print_logo();
+        }
+        Command::Update => {
+            run_update()?;
         }
         Command::Init => {
             print_logo();
@@ -1391,6 +1396,49 @@ fn print_logo() {
     println!("{}", LOGO);
     println!("  {}", style(TAGLINE).dim().italic());
     println!();
+}
+
+/// Clone the latest ferret source and install it with `baby --user`.
+fn run_update() -> Result<()> {
+    let repo_url = env!("CARGO_PKG_REPOSITORY");
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let checkout_dir =
+        std::env::temp_dir().join(format!("ferret-update-{}-{nonce}", std::process::id()));
+
+    if checkout_dir.exists() {
+        std::fs::remove_dir_all(&checkout_dir)
+            .with_context(|| format!("failed to clean up {}", checkout_dir.display()))?;
+    }
+
+    println!("Cloning latest ferret from {repo_url}…");
+    let clone_status = std::process::Command::new("git")
+        .args(["clone", "--depth", "1", repo_url])
+        .arg(&checkout_dir)
+        .status()
+        .context("failed to run git clone")?;
+    if !clone_status.success() {
+        anyhow::bail!("git clone of {repo_url} failed");
+    }
+
+    println!("Installing with 'baby --user'…");
+    let install_result = std::process::Command::new("baby")
+        .arg("--user")
+        .current_dir(&checkout_dir)
+        .status();
+
+    let _ = std::fs::remove_dir_all(&checkout_dir);
+
+    let install_status =
+        install_result.context("failed to run 'baby --user' (is baby installed and on PATH?)")?;
+    if !install_status.success() {
+        anyhow::bail!("'baby --user' install failed");
+    }
+
+    println!("ferret updated to the latest version");
+    Ok(())
 }
 
 fn print_snapshot_summary(snapshot: &ReviewSnapshot) {
