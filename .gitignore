@@ -26,3 +26,5 @@
 .uni/
 .traci/
 .orb
+.skillastic/daemon.*
+.skillastic/state.tmp
