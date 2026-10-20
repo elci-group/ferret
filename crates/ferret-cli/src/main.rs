@@ -1827,3 +1827,229 @@ fn apply(target: &PathBuf, text: String) -> anyhow::Result<()> {
         assert!(!has_error_swallow_before_write(content));
     }
 }
+
+#[cfg(test)]
+mod coderabbit_false_positive_regression_tests {
+    use super::*;
+
+    fn snapshot_for(file: &str, content: &str) -> ReviewSnapshot {
+        ReviewSnapshot {
+            id: SnapshotId::new(),
+            repo_id: ferret_core::RepoId::from_slug("test/repo"),
+            pr_number: None,
+            base_sha: "base".into(),
+            head_sha: "head".into(),
+            hunks: vec![ferret_core::DiffHunk {
+                id: "hunk".into(),
+                file_path: file.to_string(),
+                old_start: 1,
+                old_lines: 0,
+                new_start: 1,
+                new_lines: content.lines().count() as u32,
+                content: content.to_string(),
+                language: file.rsplit_once('.').map(|(_, ext)| ext.to_string()),
+            }],
+            teachers: vec![TeacherKind::CodeRabbit],
+            captured_at: Utc::now(),
+        }
+    }
+
+    fn rule_ids(file: &str, content: &str) -> Vec<String> {
+        coderabbit_review(&snapshot_for(file, content))
+            .into_iter()
+            .filter_map(|f| f.rule_id)
+            .collect()
+    }
+
+    // deckhand's deliver.toml declares forbidden patterns as data:
+    // `forbid_regex = ["TODO", "FIXME", "unimplemented!", "panic!"]`.
+    // That is a config file listing pattern names, not code containing them.
+    const DELIVER_TOML: &str = r#"[[file]]
+path = "Cargo.toml"
+required = true
+
+[[file]]
+path = "src/main.rs"
+required = true
+forbid_regex = ["TODO", "FIXME", "unimplemented!", "panic!"]
+"#;
+
+    #[test]
+    fn config_file_listing_panic_pattern_is_not_a_panic_finding() {
+        let ids = rule_ids("deliver.toml", DELIVER_TOML);
+        assert!(!ids.iter().any(|id| id == "safety/no-panic"), "{ids:?}");
+    }
+
+    #[test]
+    fn config_file_quoting_todo_pattern_is_not_a_todo_finding() {
+        let ids = rule_ids("deliver.toml", DELIVER_TOML);
+        assert!(!ids.iter().any(|id| id == "docs/todo"), "{ids:?}");
+    }
+
+    #[test]
+    fn todo_comment_in_config_file_is_still_flagged() {
+        let ids = rule_ids("deliver.toml", "# TODO: add the lib target\n[[file]]\npath = \"x\"\n");
+        assert!(ids.iter().any(|id| id == "docs/todo"), "{ids:?}");
+    }
+
+    #[test]
+    fn rust_string_literals_naming_patterns_are_not_findings() {
+        let content = r#"
+fn rules() -> Vec<&'static str> {
+    vec!["panic!", ".unwrap()", "TODO", "FIXME"]
+}
+"#;
+        let ids = rule_ids("src/rules.rs", content);
+        assert!(!ids.iter().any(|id| id == "safety/no-panic"), "{ids:?}");
+        assert!(!ids.iter().any(|id| id == "docs/todo"), "{ids:?}");
+    }
+
+    #[test]
+    fn real_unwrap_in_rust_source_is_still_flagged() {
+        let content = "fn f(x: Option<u8>) -> u8 {\n    x.unwrap()\n}\n";
+        let ids = rule_ids("src/lib.rs", content);
+        assert!(ids.iter().any(|id| id == "safety/no-panic"), "{ids:?}");
+    }
+
+    #[test]
+    fn real_panic_in_rust_source_with_raw_strings_is_still_flagged() {
+        let content = "fn f() {\n    let s = r#\"quoted \"inner\" text\"#;\n    panic!(\"boom {s}\");\n}\n";
+        let ids = rule_ids("src/lib.rs", content);
+        assert!(ids.iter().any(|id| id == "safety/no-panic"), "{ids:?}");
+    }
+
+    #[test]
+    fn todo_comment_in_rust_source_is_still_flagged() {
+        let content = "fn f() {\n    // TODO: handle the error\n}\n";
+        let ids = rule_ids("src/lib.rs", content);
+        assert!(ids.iter().any(|id| id == "docs/todo"), "{ids:?}");
+    }
+
+    // deckhand's src/auto_start.rs: canonicalize() failing falls back to the
+    // un-canonicalized path; nothing is read from the file being written.
+    const AUTO_START: &str = r##"
+pub fn install(opts: InstallOptions) -> Result<()> {
+    let unit_dir = systemd::user_unit_dir()?;
+    let unit_path = unit_dir.join(UNIT_FILE);
+    let deckhand_exe = std::env::current_exe().context("failed to locate the deckhand executable")?;
+    let deckhand_exe = deckhand_exe.canonicalize().unwrap_or(deckhand_exe);
+
+    let unit = format!(
+        r#"[Unit]
+ExecStart={} auto-clean
+"#,
+        deckhand_exe.display(),
+    );
+
+    fs::write(&unit_path, unit)
+        .with_context(|| format!("failed to write {}", unit_path.display()))?;
+    Ok(())
+}
+"##;
+
+    #[test]
+    fn non_read_fallback_before_write_is_not_flagged() {
+        assert!(!has_error_swallow_before_write(AUTO_START));
+        let ids = rule_ids("src/auto_start.rs", AUTO_START);
+        assert!(
+            !ids.iter().any(|id| id == "safety/error-swallow-before-write"),
+            "{ids:?}"
+        );
+    }
+
+    #[test]
+    fn defaulted_read_written_back_is_still_flagged() {
+        let content = r#"
+fn bump(p: &Path) -> Result<()> {
+    let cfg = fs::read_to_string(p).unwrap_or_default();
+    fs::write(p, cfg + "x")?;
+    Ok(())
+}
+"#;
+        assert!(has_error_swallow_before_write(content));
+        let ids = rule_ids("src/config.rs", content);
+        assert!(
+            ids.iter().any(|id| id == "safety/error-swallow-before-write"),
+            "{ids:?}"
+        );
+    }
+
+    #[test]
+    fn defaulted_read_flowing_through_a_derived_binding_is_flagged() {
+        let content = r#"
+fn bump(p: &Path) -> Result<()> {
+    let cfg = fs::read_to_string(p)
+        .unwrap_or_else(|_| String::new());
+    let updated = cfg.replace("a", "b");
+    fs::write(p, updated)?;
+    Ok(())
+}
+"#;
+        assert!(has_error_swallow_before_write(content));
+    }
+
+    #[test]
+    fn defaulted_parse_of_read_content_written_back_is_flagged() {
+        let content = r#"
+fn bump(p: &Path) -> Result<()> {
+    let text = fs::read_to_string(p)?;
+    let cfg: Config = toml::from_str(&text).unwrap_or_default();
+    fs::write(p, toml::to_string(&cfg)?)?;
+    Ok(())
+}
+"#;
+        assert!(has_error_swallow_before_write(content));
+    }
+
+    #[test]
+    fn defaulted_read_in_another_function_does_not_reach_the_write() {
+        let content = r#"
+fn load(p: &Path) -> usize {
+    let text = fs::read_to_string(p).unwrap_or_default();
+    text.len()
+}
+
+fn save(p: &Path, text: String) -> Result<()> {
+    fs::write(p, text)?;
+    Ok(())
+}
+"#;
+        assert!(!has_error_swallow_before_write(content));
+    }
+
+    #[test]
+    fn user_facing_cli_println_is_not_a_debug_print() {
+        let content = r#"
+pub fn install(unit_path: &Path) -> Result<()> {
+    println!(
+        "{} Installed and enabled {}",
+        emoji::e(emoji::SUCCESS),
+        SERVICE_NAME
+    );
+    println!("  {} unit: {}", emoji::e(emoji::LOCK), unit_path.display());
+    Ok(())
+}
+"#;
+        let ids = rule_ids("src/auto_start.rs", content);
+        assert!(!ids.iter().any(|id| id == "style/no-debug-print"), "{ids:?}");
+    }
+
+    #[test]
+    fn debug_formatted_println_and_dbg_are_still_flagged() {
+        let content = r#"
+pub fn install(unit_path: &Path) -> Result<()> {
+    let x = compute();
+    println!(
+        "{:?}",
+        x
+    );
+    Ok(())
+}
+"#;
+        let ids = rule_ids("src/auto_start.rs", content);
+        assert!(ids.iter().any(|id| id == "style/no-debug-print"), "{ids:?}");
+        let content = "pub fn f() {\n    let x = 1;\n    dbg!(x);\n    let y = 2;\n    let z = 3;\n}\n";
+        let ids = rule_ids("src/lib.rs", content);
+        assert!(ids.iter().any(|id| id == "style/no-debug-print"), "{ids:?}");
+    }
+}

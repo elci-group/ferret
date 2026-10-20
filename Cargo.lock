@@ -277,6 +277,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -306,16 +312,18 @@ version = "0.1.5"
 dependencies = [
  "csv",
  "dirs",
- "form3",
+ "form3 0.1.1 (git+https://github.com/elci-group/form3?rev=0a3d331a771a1eb6266839c701ee213a44e5f514)",
  "ignore",
+ "mesut",
  "once_cell",
  "regex",
  "rusqlite",
  "serde",
  "serde_json",
  "sha2",
+ "tokio",
  "toml 0.8.23",
- "ureq",
+ "ureq 2.12.1",
 ]
 
 [[package]]
@@ -489,6 +497,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "cookie"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a373e3602691c3cdea496d2f0ee5935151e6168fe87739483c463db1b2f2f87"
+dependencies = [
+ "percent-encoding",
+ "time",
+ "version_check",
+]
+
+[[package]]
+name = "cookie_store"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15b2c103cf610ec6cae3da84a766285b42fd16aad564758459e6ecf128c75206"
+dependencies = [
+ "cookie",
+ "document-features",
+ "idna",
+ "indexmap",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "time",
+ "url",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -620,6 +657,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "deranged"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,6 +713,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "442039f5147480ba31067cb00ada1adae6892028e40e45fc5de7b7df6dcc1b5f"
 dependencies = [
  "const-random",
+]
+
+[[package]]
+name = "document-features"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
+dependencies = [
+ "litrs",
 ]
 
 [[package]]
@@ -784,7 +836,7 @@ dependencies = [
  "ferret-ingest",
  "ferret-route",
  "ferret-store",
- "form3",
+ "form3 0.1.1",
  "git2",
  "serde",
  "serde_json",
@@ -949,6 +1001,11 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 [[package]]
 name = "form3"
 version = "0.1.1"
+
+[[package]]
+name = "form3"
+version = "0.1.1"
+source = "git+https://github.com/elci-group/form3?rev=0a3d331a771a1eb6266839c701ee213a44e5f514#0a3d331a771a1eb6266839c701ee213a44e5f514"
 
 [[package]]
 name = "form_urlencoded"
@@ -1194,6 +1251,12 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "hermit-abi"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 
 [[package]]
 name = "hex"
@@ -1625,6 +1688,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
+name = "litrs"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1686,6 +1755,153 @@ dependencies = [
 ]
 
 [[package]]
+name = "mesut"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-blocking",
+ "mesut-core",
+ "mesut-executor",
+ "mesut-observe",
+ "mesut-rayon",
+ "mesut-router",
+ "mesut-runtime",
+ "mesut-scheduler",
+ "mesut-tokio",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "mesut-blocking"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-core",
+ "mesut-executor",
+ "num_cpus",
+ "parking_lot",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "mesut-core"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "parking_lot",
+ "serde",
+ "thiserror 1.0.69",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "mesut-executor"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-core",
+ "parking_lot",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "mesut-observe"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "mesut-core",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "mesut-rayon"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-core",
+ "mesut-executor",
+ "num_cpus",
+ "parking_lot",
+ "rayon",
+ "thiserror 1.0.69",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "mesut-router"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "mesut-core",
+ "mesut-executor",
+ "parking_lot",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "mesut-runtime"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-core",
+ "mesut-executor",
+ "mesut-observe",
+ "mesut-router",
+ "mesut-scheduler",
+ "parking_lot",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "mesut-scheduler"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-core",
+ "mesut-executor",
+ "parking_lot",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "mesut-tokio"
+version = "0.1.0"
+source = "git+https://github.com/elci-group/mesut?rev=5397efdd0a1621ad0177461af0732a4fa21975d4#5397efdd0a1621ad0177461af0732a4fa21975d4"
+dependencies = [
+ "async-trait",
+ "mesut-core",
+ "mesut-executor",
+ "parking_lot",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "metrics"
 version = "0.24.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1701,7 +1917,7 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -1785,6 +2001,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-conv"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
+
+[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1811,6 +2033,16 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",
+]
+
+[[package]]
+name = "num_cpus"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
+dependencies = [
+ "hermit-abi",
+ "libc",
 ]
 
 [[package]]
@@ -1887,6 +2119,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "ureq 3.4.2",
 ]
 
 [[package]]
@@ -2034,6 +2267,12 @@ checksum = "0103b1cef7ec0cf76490e969665504990193874ea05c85ff9bab8b911d0a0564"
 dependencies = [
  "zerovec",
 ]
+
+[[package]]
+name = "powerfmt"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "ppv-lite86"
@@ -2686,7 +2925,7 @@ version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6798b1838b6a0f69c007c133b8df5866302197e404e8b6ee8ed3e3a5e68dc6"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bytes",
  "chrono",
  "crc",
@@ -2760,7 +2999,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa003f0038df784eb8fecbbac13affe3da23b45194bd57dba231c8f48199c526"
 dependencies = [
  "atoi",
- "base64",
+ "base64 0.22.1",
  "bitflags",
  "byteorder",
  "bytes",
@@ -2803,7 +3042,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db58fcd5a53cf07c184b154801ff91347e4c30d17a3562a635ff028ad5deda46"
 dependencies = [
  "atoi",
- "base64",
+ "base64 0.22.1",
  "bitflags",
  "byteorder",
  "chrono",
@@ -2974,6 +3213,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ad99c4c6d32803332c548b1af0540b357b3f5fc0be8f6c6bfe8b2e6ae784070"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "time"
+version = "0.3.55"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdb87b95ec50ddfa440816d227a17b2ccbdda963a316a727fda0fc4334f7d134"
+dependencies = [
+ "deranged",
+ "num-conv",
+ "powerfmt",
+ "serde_core",
+ "time-core",
+ "time-macros",
+]
+
+[[package]]
+name = "time-core"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
+
+[[package]]
+name = "time-macros"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e689342a48d2ea927c87ea50cabf8594854bf940e9310208848d680d668ed85"
+dependencies = [
+ "num-conv",
+ "time-core",
 ]
 
 [[package]]
@@ -3321,7 +3590,7 @@ version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "flate2",
  "log",
  "once_cell",
@@ -3331,6 +3600,37 @@ dependencies = [
  "serde_json",
  "url",
  "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "ureq"
+version = "3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a7ac20be9b7726e0bbdbf974c059676d9acb1cd414961f570a4e8231cacd7fc"
+dependencies = [
+ "base64 0.23.1",
+ "cookie_store",
+ "log",
+ "percent-encoding",
+ "rustls",
+ "rustls-pki-types",
+ "serde",
+ "serde_json",
+ "ureq-proto",
+ "utf8-zero",
+ "webpki-roots 1.0.9",
+]
+
+[[package]]
+name = "ureq-proto"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f86fd172ccca569e458f61b6bdd6220965a9ef36e672a6852953b51a0e1583be"
+dependencies = [
+ "base64 0.23.1",
+ "http",
+ "httparse",
+ "log",
 ]
 
 [[package]]
@@ -3344,6 +3644,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "utf8-zero"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c0a043c9540bae7c578c88f91dda8bd82e59ae27c21baca69c8b191aaf5a6e"
 
 [[package]]
 name = "utf8_iter"

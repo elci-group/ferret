@@ -1,15 +1,24 @@
 {
   "name": "kaptaind",
-  "skill_version": "0.1.0",
+  "skill_version": "0.2.0",
   "compatible_apps": [
     ">=0.1.0"
   ],
+  "parent": "kaptaind@0.1.0",
   "created": "2026-08-07T20:41:34.860377368Z",
-  "last_verified": "2026-08-07",
+  "last_verified": "2026-09-05",
   "confidence": 0.95,
   "status": "active",
   "verified_app_version": "0.1.0",
-  "mutation_history": [],
+  "mutation_history": [
+    {
+      "commit": "864bc769",
+      "reason": "Manual content refresh: kaptaind grew from 0.1.0 to 10.3.3 with a much larger CLI surface (branch/integrate/pull/release/checkout governance, doctor/stress/report qualification pipeline, audit/evidence/governance/integrations compliance, trawl/monitor/service fleet management, shark HA). Documented the new commands and the observe-only-by-default `[operation] mode` behavior introduced in 10.1.4/10.2.0.",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "from_app": "0.1.0",
+      "to_app": "10.3.3"
+    }
+  ],
   "context": {
     "frameworks": [
       "axum",
@@ -46,5 +55,7 @@
       "uuid": "1.11"
     }
   },
-  "body_path": "kaptaind.md"
+  "body_path": "kaptaind.md",
+  "invocation": "both",
+  "bucket": "core"
 }

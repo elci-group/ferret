@@ -31,3 +31,7 @@ uni --fail-under 80 .
 Use `--only ferret` to run just ferret's own check through uni, `--json` for
 machine-readable output, and `uni revise` to have flagged tools attempt their
 own fix. See uni's own `.skillastic/skills/uni.md` skill for full details.
+
+## TempCheq
+
+- Submit every artifact containing LLM inference calls to tempcheq before delivery: run `tempcheq <path>` on the workspace that produced the artifact, review the temperature audit, and include the findings with the artifact (`tempcheq --report` for JSON output, `tempcheq report <path>` for Markdown/HTML report files).
